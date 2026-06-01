@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html>
+<body>
+  <h2>TikTok Authorization</h2>
+  <p>Copy the code below and paste it into the application:</p>
+  <textarea id="code" rows="3" cols="60" readonly></textarea>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    document.getElementById('code').value = params.get('code') || 'No code found';
+  </script>
+</body>
+</html>
