@@ -5,15 +5,16 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TextChatService = game:GetService("TextChatService")
 local Terrain = workspace:FindFirstChildWhichIsA("Terrain")
 
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer.PlayerGui
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+
 local gameFolder = Terrain:FindFirstChild("_Game")
 local padsFolder = gameFolder:FindFirstChild("Admin")
-
 local regenPad = padsFolder:FindFirstChild("Regen")
 local adminPads = padsFolder:FindFirstChild("Pads")
 local SayMessageRequest = ReplicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest
-
-local LocalPlayer = Players.LocalPlayer
-local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local chatFrame: Frame = PlayerGui.Chat.Frame.ChatChannelParentFrame.Frame_MessageLogDisplay.Scroller
 
 local SpamLoop = nil
 local SpamActive = false
@@ -21,6 +22,8 @@ local FlashLoop = nil
 local FlashActive = false
 local AnimateLoop = nil
 local AnimateActive = false
+local BHCheckLoop = nil
+local CheckActive = false
 
 local Animations = {
 	[1] = {
@@ -49,9 +52,9 @@ local Prefix = "!"
 local Blacklist = {}
 local Commands = {
 	["crashserver"] = function()
-		for i = 1, 10000 do
-			runCommandHidden("btools me")
-			task.wait(0.05)
+		print("Attempting to crash server...")
+		while task.wait(0.05) do
+			runCommandHidden("btools me,fuck")
 		end
 	end,
 	["flash"] = function()
@@ -71,12 +74,14 @@ local Commands = {
 				task.wait(0.15)
 			end
 		end)
+		print("Flashing is now active.")
 	end,
 	["unflash"] = function()
+		print("Flashing is no longer active.")
 		FlashActive = false
 		FlashLoop = nil
 	end,
-	["animatehint"] = function(_, args)
+	["animatehint"] = function(args)
 		local animId = tonumber(args[1])
 		if not animId then return end
 
@@ -99,15 +104,24 @@ local Commands = {
 				end
 			end
 		end)
+		print("Now animating setmessage.")
 	end,
 	["unanimatehint"] = function()
+		print("No longer animating setmessage.")
 		AnimateActive = false
 		AnimateLoop = nil
 	end,
-	["spam"] = function(_, args)
-		if not args or not args[1] then return end
+	["spam"] = function(args)
+		if not args or #args < 2 then
+			return
+		end
 
-		local commandToSpam = table.concat(args, " ")
+		local delayTime = tonumber(args[#args]) or 0.5
+		
+		local commandArgs = table.clone(args)
+		table.remove(commandArgs, #commandArgs)
+
+		local commandToSpam = table.concat(commandArgs, " ")
 
 		if SpamActive then
 			return
@@ -118,11 +132,13 @@ local Commands = {
 		SpamLoop = task.spawn(function()
 			while SpamActive do
 				runCommandHidden(commandToSpam)
-				task.wait(0.5)
+				task.wait(delayTime)
 			end
 		end)
+		print("Now spamming inputted command.")
 	end,
 	["unspam"] = function()
+		print("Stopped spamming inputted command.")
 		SpamActive = false
 		SpamLoop = nil
 	end,
@@ -133,9 +149,9 @@ local Commands = {
 		target = target:lower()
 
 		if target == "all" or target == "me" or target == "others" then
-			runCommandHidden("setgrav " .. target .. " -9e9")
-			runCommandHidden("punish " .. target)
-			runCommandHidden("blind " .. target)
+			runCommandHidden("setgrav " .. target .. ",fuck" .. " -9e9")
+			runCommandHidden("punish " .. target .. ",fuck")
+			runCommandHidden("blind " .. target .. ",fuck")
 			return
 		end
 
@@ -143,6 +159,7 @@ local Commands = {
 		if player then
 			Blacklist[player.Name] = true
 		end
+		print("Blacklisted target.")
 	end,
 	["unblacklist"] = function(args)
 		local target = args[1]
@@ -151,17 +168,20 @@ local Commands = {
 		target = target:lower()
 
 		if target == "all" or target == "me" or target == "others" then
-			runCommandHidden("respawn " .. target)
+			runCommandHidden("reset " .. target .. ",fuck")
 			return
 		end
 
 		local player = findPlayer(target)
 		if player then
-			runCommandHidden("respawn " .. player.Name)
+			runCommandHidden("reset " .. player.Name .. ",fuck")
 			Blacklist[player.Name] = nil
 		end
+		
+		print("Unblacklisted target.")
 	end,
 	["getpad"] = function()
+		local Root = Character:FindFirstChild("HumanoidRootPart")
 		local freePadColor = Color3.fromRGB(40, 127, 71)
 
 		local foundFreePad = false
@@ -170,13 +190,7 @@ local Commands = {
 			local pad = v:FindFirstChild("Head")
 			if pad.Color == freePadColor then
 				foundFreePad = true
-
-				firetouchinterest(Character.PrimaryPart, pad, 0)
-
-				task.delay(0.5, function()
-					firetouchinterest(Character.PrimaryPart, pad, 1)
-				end)
-
+				firetouchinterest(Root, pad, 0)
 				break
 			end
 		end
@@ -186,19 +200,11 @@ local Commands = {
 
 			if clickDetector then
 				fireclickdetector(clickDetector)
-
 				task.wait(0.5)
-
 				for _, v in pairs(adminPads) do
 					local pad = v:FindFirstChild("Head")
-
 					if pad.Color == freePadColor then
-						firetouchinterest(Character.PrimaryPart, pad, 0)
-
-						task.delay(0.5, function()
-							firetouchinterest(Character.PrimaryPart, pad, 1)
-						end)
-
+						firetouchinterest(Root, pad, 0)
 						break
 					end
 				end
@@ -206,16 +212,36 @@ local Commands = {
 		end
 	end,
 	["resetpads"] = function()
+		print("Admin pads have been reset.")
 		local clickDetector = regenPad:FindFirstChildOfClass("ClickDetector")
 		fireclickdetector(clickDetector)
 	end,
 	["antibh"] = function()
-		local clickDetector = regenPad:FindFirstChildOfClass("ClickDetector")
-		fireclickdetector(clickDetector)
+		if CheckActive then
+			return
+		end
+
+		CheckActive = true
+		
+		print("Anti ban hammer has been enabled.")
+
+		BHCheckLoop = task.spawn(function()
+			while CheckActive do
+				for _, p in pairs(Players:GetPlayers()) do
+					local character = p.Character
+					Character.ChildAdded:Connect(function(ch)
+						if ch:IsA("Tool") and ch.Name == "BanHammer" then
+							runCommandHidden("ungear " .. p.Name .. ",fuck")
+						end
+					end)
+				end
+			end
+		end)
 	end,
-	["antibh"] = function()
-		local clickDetector = regenPad:FindFirstChildOfClass("ClickDetector")
-		fireclickdetector(clickDetector)
+	["unantibh"] = function()
+		print("Anti ban hammer has been disabled.")
+		CheckActive = false
+		BHCheckLoop = nil
 	end,
 }
 
@@ -229,6 +255,11 @@ end
 
 function runCommandHidden(str)
 	SayMessageRequest:FireServer(str, "System")
+end
+
+function getScore(player)
+	local SScore = player:FindFirstChild("SScore")
+	return SScore.Value
 end
 
 function findPlayer(partialName)
@@ -311,12 +342,21 @@ while task.wait(0.5) do
 
 		for _, playerInstance in ipairs(targets) do
 			local char = playerInstance.Character
+			local playerGui = playerInstance.PlayerGui
 
 			if char and char.Parent == workspace then
-				runCommandHidden("setgrav " .. playerInstance.Name .. " -9e9")
-				runCommandHidden("punish " .. playerInstance.Name)
-				runCommandHidden("blind " .. playerInstance.Name)
+				runCommandHidden("setgrav " .. playerInstance.Name .. ",fuck" .. " -9e9")
+				runCommandHidden("punish " .. playerInstance.Name .. ",fuck")
+				runCommandHidden("blind " .. playerInstance.Name .. ",fuck")
 			end
 		end
 	end
 end
+
+chatFrame.ChildAdded:Connect(function(child)
+	local textLabel = child:FindFirstChildOfClass("TextLabel")
+	local textButton = textLabel:FindFirstChildOfClass("TextButton")
+	if string.find(textLabel.Text, "You are muted and cannot talk in this channel") and textButton.Text == "{System}" then
+		child:Destroy()
+	end
+end)
