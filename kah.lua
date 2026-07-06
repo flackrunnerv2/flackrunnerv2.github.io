@@ -100,7 +100,7 @@ local Commands = {
 					if not AnimateActive then break end
 
 					runCommandHidden("setmessage " .. frame)
-					task.wait(0.15)
+					task.wait(0.5)
 				end
 			end
 		end)
